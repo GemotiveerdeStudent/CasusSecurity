@@ -14,7 +14,8 @@ from connection_reader import get_active_remote_ips
 
 
 
-test_ips = get_active_remote_ips()
+ip_process_list = get_active_remote_ips()
+
 
 ioc = IOCChecker()
 
@@ -25,20 +26,20 @@ def analyse_ips():
     test_ips = get_active_remote_ips()
     land_teller = {}
 
-    for ip in test_ips:
+    for ip, process_name in ip_process_list:
         geo = get_geolocation(ip)
         country = geo.get('country', 'Onbekend')
         city = geo.get('city', '')
         verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
-        
-        tree.insert("", "end", values=(ip, country, city, verdacht))
 
-        # Tel per land
+        tree.insert("", "end", values=(ip, process_name, country, city, verdacht))
+
         land_teller[country] = land_teller.get(country, 0) + 1
 
-    # Zet resultaat in het label
-    stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
-    stats_label.config(text="🌍 Verbindingshits per land:\n" + stats)
+
+        # Zet resultaat in het label
+        stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
+        stats_label.config(text="🌍 Verbindingshits per land:\n" + stats)
 
 
 def auto_refresh(): 
@@ -52,8 +53,9 @@ root = tk.Tk()
 root.title("Digitale Diefstal – IP Analyse")
 root.geometry("900x500")
 
-tree = ttk.Treeview(root, columns=("IP", "Land", "Stad", "IOC"), show="headings")
+tree = ttk.Treeview(root, columns=("IP", "Proces", "Land", "Stad", "IOC"), show="headings")
 tree.heading("IP", text="IP")
+tree.heading("Proces", text="Proces")
 tree.heading("Land", text="Land")
 tree.heading("Stad", text="Stad")
 tree.heading("IOC", text="Verdacht")
