@@ -18,7 +18,7 @@ def get_outgoing_connections():
             except:
                 hostname = "Onbekend"
 
-            results.append((ip, hostname, port, process_name, "Uitgaand"))
+            results.append((ip, hostname, port, process_name))
     return results
 
 
@@ -34,5 +34,5 @@ def get_incoming_connections():
 
             ip = conn.laddr.ip
             port = conn.laddr.port
-            results.append((ip, "-", port, process_name, "Inkomend"))
+            results.append((ip, "-", port, process_name))
     return results
