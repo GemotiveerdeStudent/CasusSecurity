@@ -123,7 +123,7 @@ def analyse_firewall_log():
             return
 
         land_teller = {}
-        for ip, hits in data.items():
+        for ip, hits, protocol, port, action in data:
             if stop_requested:
                 return
             geo = cached_geolocation(ip)
@@ -131,22 +131,11 @@ def analyse_firewall_log():
             country = get_country_iso_code(raw_country)
             city = geo.get("city", "")
             verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
-            tree_fw.insert("", "end", values=(ip, hits, country, city, verdacht))
+            tree_fw.insert("", "end", values=(ip, hits, protocol, port, action, country, city, verdacht))
             land_teller[country] = land_teller.get(country, 0) + hits
 
         stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
         stats_label_fw.config(text="🌍 Verbindingshits per land:\n" + stats)
-
-    except PermissionError:
-        firewall_status_label.config(
-            text="🚫 Geen toegang tot firewall log. Start de applicatie als administrator.",
-            fg="red"
-        )
-    except Exception as e:
-        firewall_status_label.config(
-            text=f"❌ Fout bij lezen firewall log: {e}",
-            fg="red"
-        )
 
     except PermissionError:
         firewall_status_label.config(
@@ -234,8 +223,9 @@ stats_label_in.pack(fill=tk.X, padx=10, pady=5)
 btn_in = ttk.Button(tab_incoming, text="▶ Analyse inkomend verkeer", command=lambda: threading.Thread(target=analyse_incoming, daemon=True).start())
 btn_in.pack(pady=5)
 
-columns_fw = ("IP", "Hits", "Land", "Stad", "IOC")
+columns_fw = ("IP", "Hits", "Protocol", "Poort", "Actie", "Land", "Stad", "IOC")
 tree_fw = ttk.Treeview(tab_firewall, columns=columns_fw, show="headings")
+
 for col in columns_fw:
     tree_fw.heading(col, text=col)
 tree_fw.pack(fill=tk.BOTH, expand=True)

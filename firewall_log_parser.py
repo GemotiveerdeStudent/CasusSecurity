@@ -1,29 +1,42 @@
 import os
 import subprocess
 
-def parse_firewall_log(path="C:\\Windows\\System32\\LogFiles\\Firewall\\Pfirewall.log"):
+def parse_firewall_log(path="C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewall.log"):
+    import os
     if not os.path.exists(path):
-        return {}
+        return []
 
     ip_hits = {}
 
-    try:
-        with open(path, "r") as file:
-            for line in file:
+    with open(path, "r") as file:
+        for line in file:
+            if line.startswith("20"):  # simpele check op datum
                 parts = line.strip().split()
-                if len(parts) < 8:
+
+                try:
+                    action = parts[2]
+                    protocol = parts[3]
+                    src_ip = parts[4]
+                    dst_ip = parts[5]
+                    dst_port = parts[7]
+                except IndexError:
                     continue
 
-                # Expected format: date time action protocol src_ip dst_ip src_port dst_port direction
-                action, protocol, src_ip, dst_ip, src_port, dst_port, direction = parts[1:8]
+                # Filter lege IP's of ongeldige regels
+                if dst_ip.count(".") != 3 and ":" not in dst_ip:
+                    continue
 
-                # Alleen IP-adressen (geen ::1, etc.)
-                if dst_ip.count(".") == 3:
-                    ip_hits[dst_ip] = ip_hits.get(dst_ip, 0) + 1
-    except PermissionError:
-        print("Geen toestemming om firewall log te lezen.")
+                key = (dst_ip, protocol, dst_port, action)
 
-    return ip_hits
+                if key not in ip_hits:
+                    ip_hits[key] = 1
+                else:
+                    ip_hits[key] += 1
+
+    # Converteren naar lijst van tuples
+    return [(ip, hits, proto, port, action) for (ip, proto, port, action), hits in ip_hits.items()]
+
+
 
 import subprocess
 
