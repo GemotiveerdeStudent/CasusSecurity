@@ -4,9 +4,10 @@ import ctypes
 import sys
 import os
 from tkinter import ttk
+from ioc_checker import IOCChecker
+from ioc_updater import update_ioc_list_from_feodo
 from functools import lru_cache
 from geo_lookup import get_geolocation
-from ioc_checker import IOCChecker
 from connection_reader import get_incoming_connections, get_outgoing_connections
 from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled, enable_firewall_logging
 from country_utils import get_country_iso_code
@@ -242,6 +243,19 @@ enable_logging_button = ttk.Button(tab_firewall, text="Firewall logging inschake
 
 stop_button = ttk.Button(root, text="⏹ Analyse stoppen", command=stop_analysis)
 stop_button.pack(pady=5)
+
+ioc_status_label = tk.Label(root, text="", font=("Segoe UI", 9, "italic"))
+ioc_status_label.pack(pady=2)
+
+def handle_update_iocs():
+    success, msg = update_ioc_list_from_feodo()
+    ioc_status_label.config(text=msg)
+    if success:
+        global ioc
+        ioc = IOCChecker()  # Herlaad IOC-checker met nieuwe data
+
+update_iocs_button = ttk.Button(root, text="🔄 Update IOC-lijst (Feodo Tracker)", command=handle_update_iocs)
+update_iocs_button.pack(pady=5)
 
 resume_button = ttk.Button(root, text="▶ Analyse hervatten (alles)", command=resume_analysis)
 resume_button.pack(pady=5)

@@ -1,3 +1,4 @@
-1.2.3.4
-5.6.7.8
-8.8.8.8
+ip,type,source,date,description
+"""first_seen_utc"",""dst_ip"",""dst_port"",""c2_status"",""last_online"",""malware""",C2,Feodo Tracker,2025-04-13,Geautomatiseerde IOC-feed
+"""2022-05-19 18:29:48"",""149.28.156.183"",""443"",""online"",""2025-04-13"",""Emotet""",C2,Feodo Tracker,2025-04-13,Geautomatiseerde IOC-feed
+"""2025-04-11 16:35:32"",""109.172.92.205"",""443"",""offline"",""2025-04-13"",""QakBot""",C2,Feodo Tracker,2025-04-13,Geautomatiseerde IOC-feed

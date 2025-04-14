@@ -2,16 +2,20 @@
 import csv
 
 class IOCChecker:
-    def __init__(self, ioc_file="malicious_ips.csv"):
-        self.iocs = set()
+    def __init__(self, csv_file="malicious_ips.csv"):
+        self.malicious_ips = set()
+        self.load(csv_file)
+
+    def load(self, csv_file):
         try:
-            with open(ioc_file, newline='') as csvfile:
-                reader = csv.reader(csvfile)
+            with open(csv_file, newline='') as f:
+                reader = csv.DictReader(f)
                 for row in reader:
-                    ip = row[0].strip()
-                    self.iocs.add(ip)
+                    self.malicious_ips.add(row["ip"].strip())
         except FileNotFoundError:
-            print(f"[!] IOC-bestand niet gevonden: {ioc_file}")
+            print("[IOCChecker] Geen IOC-bestand gevonden.")
+        except Exception as e:
+            print(f"[IOCChecker] Fout bij laden IOC's: {e}")
 
     def is_malicious(self, ip):
-        return ip in self.iocs
+        return ip in self.malicious_ips
