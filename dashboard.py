@@ -4,10 +4,9 @@ import ctypes
 import sys
 import os
 from tkinter import ttk
-from ioc_checker import IOCChecker
-from ioc_updater import update_ioc_list_from_feodo
 from functools import lru_cache
 from geo_lookup import get_geolocation
+from ioc_checker import IOCChecker
 from connection_reader import get_incoming_connections, get_outgoing_connections
 from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled, enable_firewall_logging
 from country_utils import get_country_iso_code
@@ -42,45 +41,47 @@ def restart_as_admin():
 def cached_geolocation(ip):
     return get_geolocation(ip)
 
-def analyse_ips(ip_process_list, tree, label, progress=None):
+def analyse_ips(ip_entries, tree, stats_label, progress_bar):
+    from ioc_checker import IOCChecker
+    global ioc
+
+    if not ioc:
+        ioc = IOCChecker()
+
     for row in tree.get_children():
         tree.delete(row)
 
-    if not ip_process_list:
-        label.config(text="Geen verbindingen gevonden.")
-        if progress: progress.stop()
-        return
-
     land_teller = {}
 
-    for ip, hostname, port, process_name in ip_process_list:
+    for entry in ip_entries:
         if stop_requested:
-            if progress: progress.stop()
-            return
+            break
 
-        try:
-            geo = cached_geolocation(ip)
-            raw_country = geo.get('country', 'Onbekend')
-            country = get_country_iso_code(raw_country)
-            city = geo.get('city', '')
-            verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
+        ip, hostname, port, proc = entry
+        geo = cached_geolocation(ip)
+        raw_country = geo.get("country", "Onbekend")
+        country = get_country_iso_code(raw_country)
+        city = geo.get("city", "")
 
-            tree.insert("", "end", values=(ip, hostname, port, process_name, country, city, verdacht))
-            land_teller[country] = land_teller.get(country, 0) + 1
+        verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
+        tag = "malicious" if verdacht == "JA" else "benign"
 
-        except Exception as e:
-            print(f"[analyse_ips] Fout bij IP {ip}: {e}")
+        tree.insert("", "end", values=(ip, hostname, port, proc, country, city, verdacht), tags=(tag,))
+        land_teller[country] = land_teller.get(country, 0) + 1
 
     stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
-    label.config(text="🌍 Verbindingshits per land:\n" + stats)
-    if progress: progress.stop()
+    stats_label.config(text="🌍 Verbindingen per land:\n" + stats)
+
+    progress_bar.stop()
 
 def analyse_outgoing():
     progress_out.start()
     analyse_ips(get_outgoing_connections(), tree_out, stats_label_out, progress_out)
 
 def analyse_incoming():
-    analyse_ips(get_incoming_connections(), tree_in, stats_label_in)
+    progress_in.start()
+    analyse_ips(get_incoming_connections(), tree_in, stats_label_in, progress_in)
+
 
 def analyse_firewall_log():
     from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled
@@ -118,21 +119,35 @@ def analyse_firewall_log():
         tree_fw.delete(row)
 
     try:
+        # Definieer Treeview kleurstijlen (vereist Style-configuratie!)
+        style = ttk.Style()
+        style.map("Treeview",
+                  background=[('selected', '#ececec')])
+        style.configure("malicious.Treeview", background="#ffcccc")
+        style.configure("benign.Treeview", background="#ccffcc")
+
+        tree_fw.tag_configure("malicious", background="#ffcccc")  # lichtrood
+        tree_fw.tag_configure("benign", background="#ccffcc")     # lichtgroen
+
         data = parse_firewall_log()
         if not data:
             stats_label_fw.config(text="Geen firewall logs gevonden.")
             return
 
         land_teller = {}
-        for ip, hits, protocol, port, action in data:
+        for entry in data:
             if stop_requested:
                 return
+
+            ip, hits, protocol, port, action = entry
             geo = cached_geolocation(ip)
             raw_country = geo.get("country", "Onbekend")
             country = get_country_iso_code(raw_country)
             city = geo.get("city", "")
             verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
-            tree_fw.insert("", "end", values=(ip, hits, protocol, port, action, country, city, verdacht))
+            tag = "malicious" if verdacht == "JA" else "benign"
+
+            tree_fw.insert("", "end", values=(ip, hits, protocol, port, action, country, city), tags=(tag,))
             land_teller[country] = land_teller.get(country, 0) + hits
 
         stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
@@ -148,6 +163,38 @@ def analyse_firewall_log():
             text=f"❌ Fout bij lezen firewall log: {e}",
             fg="red"
         )
+
+def handle_update_all_iocs():
+    from ioc_checker import (
+        update_ioc_list_from_feodo,
+        update_ioc_list_from_threatfox,
+        update_ioc_list_from_openphish,
+        update_ioc_list_from_alienvault,
+        clear_ioc_list
+    )
+
+    clear_ioc_list()
+    messages = []
+    success = True
+
+    for updater in [
+        update_ioc_list_from_feodo,
+        update_ioc_list_from_threatfox,
+        update_ioc_list_from_openphish,
+        lambda: update_ioc_list_from_alienvault("YOUR_API_KEY_HERE")
+    ]:
+        ok, msg = updater()
+        messages.append(msg)
+        if not ok:
+            success = False
+
+    ioc_status_label.config(text="\n".join(messages))
+
+    if success:
+        global ioc
+        ioc = IOCChecker()
+
+
 
 def stop_analysis():
     global stop_requested
@@ -205,6 +252,10 @@ notebook.add(tab_firewall, text="Firewall Log")
 
 columns = ("IP", "Hostnaam", "Poort", "Proces", "Land", "Stad", "IOC")
 tree_out = ttk.Treeview(tab_outgoing, columns=columns, show="headings")
+# Kleurstijl voor IOC-status in uitgaand verkeer
+style = ttk.Style()
+style = ttk.Style()
+
 for col in columns:
     tree_out.heading(col, text=col)
 tree_out.pack(fill=tk.BOTH, expand=True)
@@ -215,18 +266,32 @@ progress_out.pack(fill=tk.X, padx=10, pady=2)
 btn_out = ttk.Button(tab_outgoing, text="▶ Analyse uitgaand verkeer", command=lambda: threading.Thread(target=analyse_outgoing, daemon=True).start())
 btn_out.pack(pady=5)
 
+style.map("Treeview", background=[('selected', '#ececec')])
+style.configure("malicious.Treeview", background="#ffcccc")  # lichtrood
+style.configure("benign.Treeview", background="#ccffcc")     # lichtgroen
+
+tree_out.tag_configure("malicious", background="#ffcccc")
+tree_out.tag_configure("benign", background="#ccffcc")
+
 tree_in = ttk.Treeview(tab_incoming, columns=columns, show="headings")
 for col in columns:
     tree_in.heading(col, text=col)
 tree_in.pack(fill=tk.BOTH, expand=True)
+
 stats_label_in = tk.Label(tab_incoming, text="", justify="left", anchor="w", font=("Segoe UI", 10))
 stats_label_in.pack(fill=tk.X, padx=10, pady=5)
+
+progress_in = ttk.Progressbar(tab_incoming, mode="indeterminate")
+progress_in.pack(fill=tk.X, padx=10, pady=2)
+
 btn_in = ttk.Button(tab_incoming, text="▶ Analyse inkomend verkeer", command=lambda: threading.Thread(target=analyse_incoming, daemon=True).start())
 btn_in.pack(pady=5)
 
-columns_fw = ("IP", "Hits", "Protocol", "Poort", "Actie", "Land", "Stad", "IOC")
-tree_fw = ttk.Treeview(tab_firewall, columns=columns_fw, show="headings")
+tree_in.tag_configure("malicious", background="#ffcccc")
+tree_in.tag_configure("benign", background="#ccffcc")
 
+columns_fw = ("IP", "Hits", "Land", "Stad", "IOC")
+tree_fw = ttk.Treeview(tab_firewall, columns=columns_fw, show="headings")
 for col in columns_fw:
     tree_fw.heading(col, text=col)
 tree_fw.pack(fill=tk.BOTH, expand=True)
@@ -244,21 +309,14 @@ enable_logging_button = ttk.Button(tab_firewall, text="Firewall logging inschake
 stop_button = ttk.Button(root, text="⏹ Analyse stoppen", command=stop_analysis)
 stop_button.pack(pady=5)
 
-ioc_status_label = tk.Label(root, text="", font=("Segoe UI", 9, "italic"))
-ioc_status_label.pack(pady=2)
-
-def handle_update_iocs():
-    success, msg = update_ioc_list_from_feodo()
-    ioc_status_label.config(text=msg)
-    if success:
-        global ioc
-        ioc = IOCChecker()  # Herlaad IOC-checker met nieuwe data
-
-update_iocs_button = ttk.Button(root, text="🔄 Update IOC-lijst (Feodo Tracker)", command=handle_update_iocs)
-update_iocs_button.pack(pady=5)
-
 resume_button = ttk.Button(root, text="▶ Analyse hervatten (alles)", command=resume_analysis)
 resume_button.pack(pady=5)
+
+update_iocs_button = ttk.Button(root, text="🔄 Update IOC-lijst (alle bronnen)", command=handle_update_all_iocs)
+update_iocs_button.pack(pady=5)
+
+ioc_status_label = tk.Label(root, text="", font=("Segoe UI", 9, "italic"))
+ioc_status_label.pack(pady=2)
 
 schedule_periodic_refresh()
 

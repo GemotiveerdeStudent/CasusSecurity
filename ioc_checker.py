@@ -1,17 +1,25 @@
-# ioc_checker.py
 import csv
+import sys
+import re
+import socket
+import requests
+
+IOC_LIST_PATH = "iocs.csv"
+
+csv.field_size_limit(sys.maxsize)
 
 class IOCChecker:
-    def __init__(self, csv_file="malicious_ips.csv"):
+    def __init__(self, csv_file=IOC_LIST_PATH):
         self.malicious_ips = set()
         self.load(csv_file)
 
     def load(self, csv_file):
         try:
             with open(csv_file, newline='') as f:
-                reader = csv.DictReader(f)
+                reader = csv.reader(f)
                 for row in reader:
-                    self.malicious_ips.add(row["ip"].strip())
+                    if row:
+                        self.malicious_ips.add(row[0].strip())
         except FileNotFoundError:
             print("[IOCChecker] Geen IOC-bestand gevonden.")
         except Exception as e:
@@ -19,3 +27,79 @@ class IOCChecker:
 
     def is_malicious(self, ip):
         return ip in self.malicious_ips
+
+IP_REGEX = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
+
+def extract_ip(line):
+    line = line.strip()
+    if IP_REGEX.match(line):
+        return line
+    if line.startswith("http"):
+        try:
+            hostname = re.findall(r"https?://([^/]+)", line)[0]
+            ip = socket.gethostbyname(hostname)
+            return ip
+        except:
+            return None
+    return None
+
+def _download_ip_feed(url, source_name):
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return False, f"❌ Fout bij ophalen {source_name} (status {response.status_code})"
+
+        ioc_set = set()
+        for line in response.text.splitlines():
+            ip = extract_ip(line)
+            if ip:
+                ioc_set.add(ip)
+
+        with open(IOC_LIST_PATH, "a", newline='') as f:
+            writer = csv.writer(f)
+            for ip in ioc_set:
+                writer.writerow([ip])
+
+        return True, f"✔️ {len(ioc_set)} IOCs toegevoegd vanuit {source_name}"
+    except Exception as e:
+        return False, f"❌ Fout bij ophalen {source_name}: {e}"
+
+def clear_ioc_list():
+    open(IOC_LIST_PATH, "w").close()
+
+def update_ioc_list_from_feodo():
+    return _download_ip_feed("https://feodotracker.abuse.ch/downloads/ipblocklist.txt", "Feodo Tracker")
+
+def update_ioc_list_from_threatfox():
+    return _download_ip_feed("https://threatfox.abuse.ch/downloads/ipblocklist.txt", "ThreatFox")
+
+def update_ioc_list_from_openphish():
+    return _download_ip_feed("https://openphish.com/feed.txt", "OpenPhish")
+
+def update_ioc_list_from_alienvault(api_key):
+    headers = {"X-OTX-API-KEY": api_key}
+    url = "https://otx.alienvault.com/api/v1/indicators/export?type=IPv4&pulse=true"
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            return False, f"❌ Fout bij ophalen AlienVault (status {response.status_code})"
+
+        ioc_set = set()
+        for line in response.text.splitlines():
+            ip = extract_ip(line)
+            if ip:
+                ioc_set.add(ip)
+
+        with open(IOC_LIST_PATH, "a", newline='') as f:
+            writer = csv.writer(f)
+            for ip in ioc_set:
+                writer.writerow([ip])
+
+        return True, f"✅ {len(ioc_set)} IOCs toegevoegd vanuit AlienVault"
+    except Exception as e:
+        return False, f"❌ Fout bij ophalen AlienVault: {e}"
+
+
+
+def clear_ioc_list():
+    open(IOC_LIST_PATH, "w").close()
