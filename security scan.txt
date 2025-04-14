@@ -1,0 +1,45 @@
+Land: GB
+- Aantal verbindingen: 3
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: CH
+- Aantal verbindingen: 1
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: ??
+- Aantal verbindingen: 10
+- Totaal bytes: 0
+- Malicious hits: 4
+
+Land: NL
+- Aantal verbindingen: 13
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: DE
+- Aantal verbindingen: 3
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: CA
+- Aantal verbindingen: 8
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: US
+- Aantal verbindingen: 4
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: IE
+- Aantal verbindingen: 1
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: PL
+- Aantal verbindingen: 1
+- Totaal bytes: 0
+- Malicious hits: 0
+

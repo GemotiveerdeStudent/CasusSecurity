@@ -1,9 +1,10 @@
+import csv
 import tkinter as tk
 import threading
 import ctypes
 import sys
 import os
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
 from functools import lru_cache
 from geo_lookup import get_geolocation
 from ioc_checker import IOCChecker
@@ -12,6 +13,8 @@ from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled,
 from country_utils import get_country_iso_code
 
 ioc = IOCChecker()
+# Globale dictionary voor landstatistieken (voor rapportage)
+land_stats = {}
 
 stop_requested = False
 
@@ -43,7 +46,7 @@ def cached_geolocation(ip):
 
 def analyse_ips(ip_entries, tree, stats_label, progress_bar):
     from ioc_checker import IOCChecker
-    global ioc
+    global ioc, land_stats  # Voeg land_stats toe aan globale scope
 
     if not ioc:
         ioc = IOCChecker()
@@ -52,6 +55,7 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar):
         tree.delete(row)
 
     land_teller = {}
+    land_stats = {}  # Reset globale statistiek per analyse
 
     for entry in ip_entries:
         if stop_requested:
@@ -66,13 +70,24 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar):
         verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
         tag = "malicious" if verdacht == "JA" else "benign"
 
+        # Voeg toe aan boomweergave
         tree.insert("", "end", values=(ip, hostname, port, proc, country, city, verdacht), tags=(tag,))
         land_teller[country] = land_teller.get(country, 0) + 1
+
+        # ➕ Voeg toe aan land_stats voor rapportage
+        if country not in land_stats:
+            land_stats[country] = {"hits": 0, "bytes": 0, "malicious": 0}
+
+        land_stats[country]["hits"] += 1
+        land_stats[country]["malicious"] += 1 if verdacht == "JA" else 0
+
+        # (optioneel) voeg hier toe: land_stats[country]["bytes"] += entry.get("bytes", 0) als beschikbaar
 
     stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
     stats_label.config(text="🌍 Verbindingen per land:\n" + stats)
 
     progress_bar.stop()
+
 
 def analyse_outgoing():
     progress_out.start()
@@ -86,13 +101,11 @@ def analyse_incoming():
 def analyse_firewall_log():
     from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled
 
-    # Eerst: check of firewall logging actief is
     if not is_firewall_logging_enabled():
         firewall_status_label.config(
             text="⚠️ Firewall logging staat UIT.",
             fg="orange"
         )
-        # Laat de inschakelknop alleen zien als gebruiker admin is
         if is_admin():
             enable_logging_button.pack(pady=5)
             restart_admin_button.pack_forget()
@@ -101,33 +114,28 @@ def analyse_firewall_log():
             restart_admin_button.pack(pady=5)
         return
 
-    # Logging staat aan, toon dit
     firewall_status_label.config(
         text="✅ Firewall logging is actief.",
         fg="green"
     )
     enable_logging_button.pack_forget()
 
-    # Check of gebruiker géén admin is, maar log wel actief is
     if not is_admin():
         restart_admin_button.pack(pady=5)
     else:
         restart_admin_button.pack_forget()
 
-    # Probeer te lezen
     for row in tree_fw.get_children():
         tree_fw.delete(row)
 
     try:
-        # Definieer Treeview kleurstijlen (vereist Style-configuratie!)
         style = ttk.Style()
-        style.map("Treeview",
-                  background=[('selected', '#ececec')])
+        style.map("Treeview", background=[('selected', '#ececec')])
         style.configure("malicious.Treeview", background="#ffcccc")
         style.configure("benign.Treeview", background="#ccffcc")
 
-        tree_fw.tag_configure("malicious", background="#ffcccc")  # lichtrood
-        tree_fw.tag_configure("benign", background="#ccffcc")     # lichtgroen
+        tree_fw.tag_configure("malicious", background="#ffcccc")
+        tree_fw.tag_configure("benign", background="#ccffcc")
 
         data = parse_firewall_log()
         if not data:
@@ -163,6 +171,28 @@ def analyse_firewall_log():
             text=f"❌ Fout bij lezen firewall log: {e}",
             fg="red"
         )
+
+def apply_filter(tree, ioc_val, country_val, proc_val):
+    ioc_val = ioc_val.strip().upper()
+    country_val = country_val.strip().upper()
+    proc_val = proc_val.strip().lower()
+
+    # Reattach eerst alle items voordat je opnieuw filtert
+    for item in tree.get_children(''):
+        tree.reattach(item, '', 'end')
+
+    for item in tree.get_children():
+        values = tree.item(item, "values")
+        ip, host, port, proc, country, city, ioc = values[:7]
+
+        match_ioc = (not ioc_val or ioc.upper() == ioc_val)
+        match_country = (not country_val or country.upper() == country_val)
+        match_proc = (not proc_val or proc_val in proc.lower())
+
+        if match_ioc and match_country and match_proc:
+            continue  # laat zichtbaar
+        else:
+            tree.detach(item)
 
 def handle_update_all_iocs():
     from ioc_checker import (
@@ -229,6 +259,46 @@ def schedule_periodic_refresh():
     analyse_all_tabs()
     root.after(60000, schedule_periodic_refresh)
 
+def export_report_csv():
+    import csv
+    file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV-bestand", "*.csv")])
+    if not file_path:
+        return
+    try:
+        with open(file_path, mode="w", newline='', encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Land", "Aantal verbindingen", "Totaal bytes", "Malicious hits"])
+            for land, info in land_stats.items():
+                writer.writerow([land, info["hits"], info["bytes"], info["malicious"]])
+        messagebox.showinfo("Succes", f"CSV-rapport opgeslagen als:\n{file_path}")
+    except Exception as e:
+        messagebox.showerror("Fout", f"Kon CSV niet opslaan:\n{e}")
+
+def export_report_txt():
+    file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Tekstbestand", "*.txt")])
+    if not file_path:
+        return
+    try:
+        with open(file_path, mode="w", encoding="utf-8") as f:
+            for land, info in land_stats.items():
+                f.write(f"Land: {land}\n")
+                f.write(f"- Aantal verbindingen: {info['hits']}\n")
+                f.write(f"- Totaal bytes: {info['bytes']}\n")
+                f.write(f"- Malicious hits: {info['malicious']}\n")
+                f.write("\n")
+        messagebox.showinfo("Succes", f"TXT-rapport opgeslagen als:\n{file_path}")
+    except Exception as e:
+        messagebox.showerror("Fout", f"Kon TXT niet opslaan:\n{e}")
+
+def reset_filter(tree, ioc_box, country_box, proc_box):
+    ioc_box.set("")
+    country_box.delete(0, tk.END)
+    proc_box.delete(0, tk.END)
+
+    for item in tree.get_children(''):
+        tree.reattach(item, '', 'end')
+
+
 root = tk.Tk()
 root.title("Digitale Diefstal – IP Analyse")
 root.geometry("1500x900")
@@ -289,6 +359,23 @@ btn_in.pack(pady=5)
 
 tree_in.tag_configure("malicious", background="#ffcccc")
 tree_in.tag_configure("benign", background="#ccffcc")
+filter_frame_out = ttk.Frame(tab_outgoing)
+filter_frame_out.pack(fill=tk.X, padx=10, pady=2)
+
+tk.Label(filter_frame_out, text="Filter op IOC:").pack(side=tk.LEFT)
+ioc_filter_out = ttk.Combobox(filter_frame_out, values=["", "JA", "NEE"], width=5)
+ioc_filter_out.pack(side=tk.LEFT, padx=5)
+
+tk.Label(filter_frame_out, text="Landcode:").pack(side=tk.LEFT)
+country_filter_out = ttk.Entry(filter_frame_out, width=5)
+country_filter_out.pack(side=tk.LEFT, padx=5)
+
+tk.Label(filter_frame_out, text="Proces:").pack(side=tk.LEFT)
+process_filter_out = ttk.Entry(filter_frame_out, width=15)
+process_filter_out.pack(side=tk.LEFT, padx=5)
+
+btn_apply_filter_out = ttk.Button(filter_frame_out, text="🔍 Filter toepassen", command=lambda: apply_filter(tree_out, ioc_filter_out.get(), country_filter_out.get(), process_filter_out.get()))
+btn_apply_filter_out.pack(side=tk.LEFT, padx=5)
 
 columns_fw = ("IP", "Hits", "Land", "Stad", "IOC")
 tree_fw = ttk.Treeview(tab_firewall, columns=columns_fw, show="headings")
@@ -317,6 +404,13 @@ update_iocs_button.pack(pady=5)
 
 ioc_status_label = tk.Label(root, text="", font=("Segoe UI", 9, "italic"))
 ioc_status_label.pack(pady=2)
+
+btn_export_csv = ttk.Button(root, text="📁 Exporteer rapport (CSV)", command=export_report_csv)
+btn_export_csv.pack(pady=2)
+
+btn_export_txt = ttk.Button(root, text="📝 Exporteer rapport (TXT)", command=export_report_txt)
+btn_export_txt.pack(pady=2)
+
 
 schedule_periodic_refresh()
 
