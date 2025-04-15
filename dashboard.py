@@ -4,6 +4,7 @@ import threading
 import ctypes
 import sys
 import os
+import platform
 from tkinter import ttk, filedialog, messagebox
 from functools import lru_cache
 from geo_lookup import get_geolocation
@@ -11,6 +12,7 @@ from ioc_checker import IOCChecker
 from connection_reader import get_incoming_connections, get_outgoing_connections
 from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled, enable_firewall_logging
 from country_utils import get_country_iso_code
+from linux_ssh_analyzer import parse_ssh_log
 
 
 ioc = IOCChecker()
@@ -434,6 +436,56 @@ restart_admin_button = ttk.Button(tab_firewall, text="Herstart als administrator
 enable_logging_button = ttk.Button(tab_firewall, text="Firewall logging inschakelen", command=handle_enable_logging)
 filter_frame_fw = ttk.Frame(tab_firewall)
 filter_frame_fw.pack(fill=tk.X, padx=10, pady=2)
+
+tab_ssh = ttk.Frame(notebook)
+notebook.add(tab_ssh, text="Linux SSH Analyse")
+
+# Schakel tab uit indien niet op Linux
+if platform.system() != "Linux":
+    lbl_disabled = tk.Label(tab_ssh, text="🚫 Alleen beschikbaar op Linux-systemen.", fg="red", font=("Segoe UI", 10, "italic"))
+    lbl_disabled.pack(pady=20)
+else:
+    tree_ssh = ttk.Treeview(tab_ssh, columns=("IP", "User", "Status", "Land", "Stad", "IOC"), show="headings")
+    for col in ("IP", "User", "Status", "Land", "Stad", "IOC"):
+        tree_ssh.heading(col, text=col)
+    tree_ssh.pack(fill=tk.BOTH, expand=True)
+
+    tree_ssh.tag_configure("malicious", background="#ffcccc")
+    tree_ssh.tag_configure("benign", background="#ccffcc")
+
+    btn_ssh = ttk.Button(tab_ssh, text="▶ Analyseer SSH-log", command=lambda: threading.Thread(target=analyse_ssh, daemon=True).start())
+    btn_ssh.pack(pady=5)
+
+columns_ssh = ("IP", "User", "Status", "Land", "Stad", "IOC")
+tree_ssh = ttk.Treeview(tab_ssh, columns=columns_ssh, show="headings")
+for col in columns_ssh:
+    tree_ssh.heading(col, text=col)
+tree_ssh.pack(fill=tk.BOTH, expand=True)
+
+stats_label_ssh = tk.Label(tab_ssh, text="", justify="left", anchor="w", font=("Segoe UI", 10))
+stats_label_ssh.pack(fill=tk.X, padx=10, pady=5)
+
+def analyse_ssh():
+    for row in tree_ssh.get_children():
+        tree_ssh.delete(row)
+
+    land_teller = {}
+    data = parse_ssh_log()
+    for entry in data:
+        ip, user, status, country, city, ioc = entry
+        tag = "malicious" if ioc == "JA" else "benign"
+        tree_ssh.insert("", "end", values=(ip, user, status, country, city, ioc), tags=(tag,))
+        land_teller[country] = land_teller.get(country, 0) + 1
+
+    stats = "\n".join(f"{land}: {count} pogingen" for land, count in land_teller.items())
+    stats_label_ssh.config(text="🌍 SSH-pogingen per land:\n" + stats)
+
+btn_ssh = ttk.Button(tab_ssh, text="▶ Analyseer SSH-log", command=lambda: threading.Thread(target=analyse_ssh, daemon=True).start())
+btn_ssh.pack(pady=5)
+
+tree_ssh.tag_configure("malicious", background="#ffcccc")
+tree_ssh.tag_configure("benign", background="#ccffcc")
+
 
 tk.Label(filter_frame_fw, text="Filter op IOC:").pack(side=tk.LEFT)
 ioc_filter_fw = ttk.Combobox(filter_frame_fw, values=["", "JA", "NEE"], width=5)
