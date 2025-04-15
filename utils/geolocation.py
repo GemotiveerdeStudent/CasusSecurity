@@ -1,5 +1,9 @@
 # geo_lookup.py
 import requests
+from functools import lru_cache
+
+from ioc.ioc_checker import IOCChecker
+from utils.country_utils import get_country_iso_code
 
 def get_geolocation(ip):
     try:
@@ -19,3 +23,8 @@ def get_geolocation(ip):
             return {'ip': ip, 'country': 'Onbekend'}
     except Exception as e:
         return {'ip': ip, 'country': 'Onbekend'}
+
+
+@lru_cache(maxsize=1000)
+def cached_geolocation(ip):
+    return get_geolocation(ip)

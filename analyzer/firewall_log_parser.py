@@ -1,5 +1,10 @@
 import os
 import subprocess
+from utils.country_utils import get_country_iso_code
+from utils.geolocation import cached_geolocation
+from ioc.ioc_checker import IOCChecker
+from utils.country_utils import get_country_iso_code
+from utils.system_privileges import is_admin
 
 def parse_firewall_log(path="C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewall.log"):
     import os
@@ -35,8 +40,6 @@ def parse_firewall_log(path="C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewal
 
     # Converteren naar lijst van tuples
     return [(ip, hits, proto, port, action) for (ip, proto, port, action), hits in ip_hits.items()]
-
-
 
 import subprocess
 

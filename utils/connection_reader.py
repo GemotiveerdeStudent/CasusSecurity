@@ -1,5 +1,14 @@
 import psutil
 import socket
+from ipaddress import ip_address
+
+
+def is_public_ip(ip):
+    try:
+        return ip_address(ip).is_global
+    except ValueError:
+        return False
+
 
 def get_outgoing_connections():
     results = []
@@ -34,5 +43,16 @@ def get_incoming_connections():
 
             ip = conn.laddr.ip
             port = conn.laddr.port
-            results.append((ip, "-", port, process_name))
+
+            # Probeer hostnaam op te lossen
+            try:
+                hostname = socket.gethostbyaddr(ip)[0]
+            except:
+                hostname = "Onbekend"
+
+            # Toon alleen publieke IP's, of markeer lokale apart
+            if is_public_ip(ip):
+                results.append((ip, hostname, port, process_name))
+            else:
+                results.append((ip, "Lokaal", port, process_name))
     return results

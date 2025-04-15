@@ -1,13 +1,11 @@
-# linux_ssh_analyzer.py
-
 import re
-from geo_lookup import get_geolocation
-from ioc_checker import IOCChecker
-from country_utils import get_country_iso_code
+from utils.geolocation import get_geolocation
+from ioc.ioc_checker import IOCChecker
+from utils.country_utils import get_country_iso_code
 
 LOG_PATH = "/var/log/auth.log"
 
-def parse_ssh_log():
+def parse_ssh_log(ioc):
     ioc = IOCChecker()
     entries = []
 
