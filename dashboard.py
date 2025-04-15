@@ -12,9 +12,13 @@ from connection_reader import get_incoming_connections, get_outgoing_connections
 from firewall_log_parser import parse_firewall_log, is_firewall_logging_enabled, enable_firewall_logging
 from country_utils import get_country_iso_code
 
+
 ioc = IOCChecker()
 # Globale dictionary voor landstatistieken (voor rapportage)
 land_stats = {}
+all_rows_out = []
+all_rows_in = []
+
 
 stop_requested = False
 
@@ -45,7 +49,7 @@ def cached_geolocation(ip):
     return get_geolocation(ip)
 
 def analyse_ips(ip_entries, tree, stats_label, progress_bar):
-    from ioc_checker import IOCChecker
+    global all_rows_out, all_rows_in
     global ioc, land_stats  # Voeg land_stats toe aan globale scope
 
     if not ioc:
@@ -53,6 +57,12 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar):
 
     for row in tree.get_children():
         tree.delete(row)
+
+    # Leeg bijhorende buffer
+    if tree == tree_out:
+        all_rows_out.clear()
+    elif tree == tree_in:
+        all_rows_in.clear()
 
     land_teller = {}
     land_stats = {}  # Reset globale statistiek per analyse
@@ -70,9 +80,15 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar):
         verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
         tag = "malicious" if verdacht == "JA" else "benign"
 
-        # Voeg toe aan boomweergave
-        tree.insert("", "end", values=(ip, hostname, port, proc, country, city, verdacht), tags=(tag,))
+        row_data = (ip, hostname, port, proc, country, city, verdacht)
+        tree.insert("", "end", values=row_data, tags=(tag,))
         land_teller[country] = land_teller.get(country, 0) + 1
+
+        # Sla op in originele lijst
+        if tree == tree_out:
+            all_rows_out.append(row_data)
+        elif tree == tree_in:
+            all_rows_in.append(row_data)
 
         # ➕ Voeg toe aan land_stats voor rapportage
         if country not in land_stats:
@@ -81,12 +97,11 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar):
         land_stats[country]["hits"] += 1
         land_stats[country]["malicious"] += 1 if verdacht == "JA" else 0
 
-        # (optioneel) voeg hier toe: land_stats[country]["bytes"] += entry.get("bytes", 0) als beschikbaar
-
     stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())
     stats_label.config(text="🌍 Verbindingen per land:\n" + stats)
 
     progress_bar.stop()
+
 
 
 def analyse_outgoing():
@@ -177,22 +192,47 @@ def apply_filter(tree, ioc_val, country_val, proc_val):
     country_val = country_val.strip().upper()
     proc_val = proc_val.strip().lower()
 
-    # Reattach eerst alle items voordat je opnieuw filtert
-    for item in tree.get_children(''):
-        tree.reattach(item, '', 'end')
+    # Kies juiste dataset
+    if tree == tree_out:
+        source_data = all_rows_out
+    elif tree == tree_in:
+        source_data = all_rows_in
+    else:
+        return
 
-    for item in tree.get_children():
-        values = tree.item(item, "values")
-        ip, host, port, proc, country, city, ioc = values[:7]
+    for row in tree.get_children():
+        tree.delete(row)
+
+    for values in source_data:
+        ip, host, port, proc, country, city, ioc = values
 
         match_ioc = (not ioc_val or ioc.upper() == ioc_val)
         match_country = (not country_val or country.upper() == country_val)
         match_proc = (not proc_val or proc_val in proc.lower())
 
         if match_ioc and match_country and match_proc:
-            continue  # laat zichtbaar
+            tag = "malicious" if ioc == "JA" else "benign"
+            tree.insert("", "end", values=values, tags=(tag,))
+
+def apply_filter_fw():
+    ioc_val = ioc_filter_fw.get().strip().upper()
+    country_val = country_filter_fw.get().strip().upper()
+    city_val = city_filter_fw.get().strip().lower()
+
+    for item in tree_fw.get_children():
+        values = tree_fw.item(item, "values")
+        ip, hits, proto, port, action, country, city = values[:7]
+        ioc = "JA" if ioc.is_malicious(ip) else "NEE"
+
+        match_ioc = (not ioc_val or ioc.upper() == ioc_val)
+        match_country = (not country_val or country.upper() == country_val)
+        match_city = (not city_val or city_val in city.lower())
+
+        if match_ioc and match_country and match_city:
+            tree_fw.reattach(item, '', 'end')
         else:
-            tree.detach(item)
+            tree_fw.detach(item)
+
 
 def handle_update_all_iocs():
     from ioc_checker import (
@@ -392,6 +432,26 @@ firewall_status_label.pack(pady=5)
 
 restart_admin_button = ttk.Button(tab_firewall, text="Herstart als administrator", command=restart_as_admin)
 enable_logging_button = ttk.Button(tab_firewall, text="Firewall logging inschakelen", command=handle_enable_logging)
+filter_frame_fw = ttk.Frame(tab_firewall)
+filter_frame_fw.pack(fill=tk.X, padx=10, pady=2)
+
+tk.Label(filter_frame_fw, text="Filter op IOC:").pack(side=tk.LEFT)
+ioc_filter_fw = ttk.Combobox(filter_frame_fw, values=["", "JA", "NEE"], width=5)
+ioc_filter_fw.pack(side=tk.LEFT, padx=5)
+
+tk.Label(filter_frame_fw, text="Landcode:").pack(side=tk.LEFT)
+country_filter_fw = ttk.Entry(filter_frame_fw, width=5)
+country_filter_fw.pack(side=tk.LEFT, padx=5)
+
+tk.Label(filter_frame_fw, text="Stad:").pack(side=tk.LEFT)
+city_filter_fw = ttk.Entry(filter_frame_fw, width=10)
+city_filter_fw.pack(side=tk.LEFT, padx=5)
+
+btn_apply_filter_fw = ttk.Button(filter_frame_fw, text="🔍 Filter toepassen", command=lambda: apply_filter_fw())
+btn_apply_filter_fw.pack(side=tk.LEFT, padx=5)
+
+btn_reset_filter_fw = ttk.Button(filter_frame_fw, text="🔄 Reset filters", command=lambda: reset_filter(tree_fw, ioc_filter_fw, country_filter_fw, city_filter_fw))
+btn_reset_filter_fw.pack(side=tk.LEFT, padx=5)
 
 stop_button = ttk.Button(root, text="⏹ Analyse stoppen", command=stop_analysis)
 stop_button.pack(pady=5)

@@ -6,7 +6,10 @@ import requests
 
 IOC_LIST_PATH = "iocs.csv"
 
-csv.field_size_limit(sys.maxsize)
+try:
+    csv.field_size_limit(sys.maxsize)
+except OverflowError:
+    csv.field_size_limit(10 * 1024 * 1024)
 
 class IOCChecker:
     def __init__(self, csv_file=IOC_LIST_PATH):
