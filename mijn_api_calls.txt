@@ -1,0 +1,5 @@
+Gevonden API‑endpoints:
+
+GET in ioc\ioc_checker.py (regel 51)
+GET in ioc\ioc_updater.py (regel 10)
+GET in utils\geolocation.py (regel 11)

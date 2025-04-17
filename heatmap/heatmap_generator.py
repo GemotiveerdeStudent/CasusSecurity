@@ -11,11 +11,12 @@ def generate_ip_heatmap(land_stats, map_path="heatmap.html"):
         lon = land_info.get("lon")
         hits = land_info.get("hits", 0)
 
-        if lat is not None and lon is not None:
+        if lat is not None and lon is not None and hits > 0:
             locations.append([lat, lon, hits])  # lat, lon, weight
 
     if not locations:
         print("[Heatmap] Geen locatiegegevens beschikbaar.")
+        print("[DEBUG] land_stats inhoud:", land_stats)
         return
 
     # Startpositie van de kaart

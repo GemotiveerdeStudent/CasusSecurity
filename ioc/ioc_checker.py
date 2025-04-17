@@ -79,6 +79,5 @@ def update_ioc_list_from_threatfox():
         "ThreatFox (GitHub mirror)"
     )
 
-
 def update_ioc_list_from_openphish():
     return _download_ip_feed("https://openphish.com/feed.txt", "OpenPhish")

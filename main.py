@@ -3,7 +3,6 @@ from gui.gui_setup import build_gui
 import sys
 sys.path.append('./gui')
 
-from gui_setup import build_gui
 
 
 # Initieer globale configuraties

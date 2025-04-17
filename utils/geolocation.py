@@ -1,4 +1,3 @@
-# geo_lookup.py
 import requests
 from functools import lru_cache
 

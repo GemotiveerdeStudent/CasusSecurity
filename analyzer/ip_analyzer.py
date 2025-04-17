@@ -30,10 +30,17 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar, all_rows_buffer, la
         all_rows_buffer.append(row_data)
 
         if country not in land_stats:
-            land_stats[country] = {"hits": 0, "bytes": 0, "malicious": 0}
+            land_stats[country] = {
+                "hits": 0,
+                "bytes": 0,
+                "malicious": 0,
+                "example_ip": ip
+            }
+
 
         land_stats[country]["hits"] += 1
         land_stats[country]["malicious"] += 1 if verdacht == "JA" else 0
+
 
         # Optioneel: houdt land_teller bij voor GUI-weergave
         land_teller[country] = land_teller.get(country, 0) + 1

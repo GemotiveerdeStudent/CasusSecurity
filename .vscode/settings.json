@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
-        "./gui"
+        "./gui",
+        "./heatmap"
     ]
 }
