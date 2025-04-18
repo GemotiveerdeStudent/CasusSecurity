@@ -39,20 +39,21 @@ def analyse_firewall_log(tree_fw, stats_label_fw, firewall_status_label, enable_
             if stop_requested():
                 return
 
-            ip, hits, protocol, port, action = entry
+            ip, hits, protocol, port, action, bytes_sent = entry
             geo = cached_geolocation(ip)
             country = get_country_iso_code(geo.get("country", "Onbekend"))
             city = geo.get("city", "")
             verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
             tag = "malicious" if verdacht == "JA" else "benign"
 
-            tree_fw.insert("", "end", values=(ip, hits, protocol, port, action, country, city), tags=(tag,))
+            tree_fw.insert("", "end", values=(ip, hits, protocol, port, action, country, city, bytes_sent), tags=(tag,))
             land_teller[country] = land_teller.get(country, 0) + hits
 
             if country not in land_stats:
                 land_stats[country] = {"hits": 0, "bytes": 0, "malicious": 0}
 
             land_stats[country]["hits"] += hits
+            land_stats[country]["bytes"] += bytes_sent
             land_stats[country]["malicious"] += 1 if verdacht == "JA" else 0
 
         stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())

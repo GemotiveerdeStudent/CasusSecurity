@@ -1,47 +1,50 @@
+import socket
+import psutil
+import re
 import os
 import subprocess
-from utils.country_utils import get_country_iso_code
-from utils.geolocation import cached_geolocation
-from ioc.ioc_checker import IOCChecker
-from utils.country_utils import get_country_iso_code
-from utils.system_privileges import is_admin
 
-def parse_firewall_log(path="C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewall.log"):
-    import os
-    if not os.path.exists(path):
-        return []
+FIREWALL_LOG_PATH = r"C:\\Windows\\System32\\LogFiles\\Firewall\\pfirewall.log"
 
-    ip_hits = {}
+IP_REGEX = re.compile(r"(\d{1,3}(?:\.\d{1,3}){3})")
 
-    with open(path, "r") as file:
-        for line in file:
-            if line.startswith("20"):  # simpele check op datum
+def parse_firewall_log(path=FIREWALL_LOG_PATH):
+    ip_data = {}  # IP -> {'hits': int, 'bytes': int, 'protocol': str, 'port': int, 'action': str}
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as file:
+            for line in file:
+                if line.startswith("#") or not line.strip():
+                    continue  # Skip header or empty lines
+
                 parts = line.strip().split()
+                if len(parts) < 10:
+                    continue
 
                 try:
-                    action = parts[2]
+                    action = parts[2]  # ALLOW or DROP
                     protocol = parts[3]
                     src_ip = parts[4]
                     dst_ip = parts[5]
                     dst_port = parts[7]
-                except IndexError:
+                    size = int(parts[9]) if parts[9].isdigit() else 0
+                except (IndexError, ValueError):
                     continue
 
-                # Filter lege IP's of ongeldige regels
-                if dst_ip.count(".") != 3 and ":" not in dst_ip:
+                if not IP_REGEX.match(dst_ip):
                     continue
 
                 key = (dst_ip, protocol, dst_port, action)
-
-                if key not in ip_hits:
-                    ip_hits[key] = 1
+                if key not in ip_data:
+                    ip_data[key] = {"hits": 1, "bytes": size}
                 else:
-                    ip_hits[key] += 1
+                    ip_data[key]["hits"] += 1
+                    ip_data[key]["bytes"] += size
 
-    # Converteren naar lijst van tuples
-    return [(ip, hits, proto, port, action) for (ip, proto, port, action), hits in ip_hits.items()]
+        return [(ip, data["hits"], proto, port, action, data["bytes"]) for (ip, proto, port, action), data in ip_data.items()]
 
-import subprocess
+    except Exception as e:
+        print(f"[Fout] Kan firewall log niet lezen: {e}")
+        return []
 
 def is_firewall_logging_enabled():
     try:
@@ -53,7 +56,6 @@ def is_firewall_logging_enabled():
     except Exception as e:
         print("[firewall check] Fout:", e)
         return False
-
 
 def enable_firewall_logging():
     try:
@@ -70,3 +72,23 @@ def enable_firewall_logging():
     except subprocess.CalledProcessError as e:
         print(f"[enable_logging] Fout bij inschakelen logging: {e}")
         return False
+
+def get_outgoing_connections():
+    results = []
+    for conn in psutil.net_connections(kind="inet"):
+        if conn.status == "ESTABLISHED" and conn.raddr:
+            try:
+                proc = psutil.Process(conn.pid)
+                process_name = proc.name()
+            except Exception:
+                process_name = "Onbekend"
+
+            ip = conn.raddr.ip
+            port = conn.raddr.port
+            try:
+                hostname = socket.gethostbyaddr(ip)[0]
+            except:
+                hostname = "Onbekend"
+
+            results.append((ip, hostname, port, process_name))
+    return results
