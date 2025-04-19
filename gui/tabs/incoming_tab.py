@@ -29,7 +29,6 @@ def build_incoming_tab(tab, ioc, all_rows_in, land_stats, stop_requested_func):
             verdacht = "JA" if ioc.is_malicious(ip) else "NEE"
             enriched.append((ip, host, port, proc, verdacht))
 
-        # Stop met onnodige geolocatie (incoming = lokaal)
         tree_in.delete(*tree_in.get_children())
         all_rows_in.clear()
 
@@ -49,7 +48,6 @@ def build_incoming_tab(tab, ioc, all_rows_in, land_stats, stop_requested_func):
     )
     btn_in.pack(pady=5)
 
-    # Filtersectie specifiek voor inkomend verkeer
     filter_frame_in = ttk.Frame(tab)
     filter_frame_in.pack(fill=tk.X, padx=10, pady=2)
 

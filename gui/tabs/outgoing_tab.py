@@ -46,7 +46,6 @@ def build_outgoing_tab(tab, ioc, all_rows_out, land_stats, stop_requested_func):
     btn_analyse = ttk.Button(tab, text="▶ Analyse uitgaand verkeer", command=lambda: threading.Thread(target=run_analysis, daemon=True).start())
     btn_analyse.pack(pady=5)
 
-    # === Filtersectie ===
     filter_frame = ttk.Frame(tab)
     filter_frame.pack(fill=tk.X, padx=10, pady=2)
 

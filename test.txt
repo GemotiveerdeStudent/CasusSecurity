@@ -1,75 +1,65 @@
-Land: IT
-- Aantal verbindingen: 6
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: CA
-- Aantal verbindingen: 903
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: ??
-- Aantal verbindingen: 26626
-- Totaal bytes: 0
-- Malicious hits: 463
-
-Land: US
-- Aantal verbindingen: 4137
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: AU
-- Aantal verbindingen: 3
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: SE
-- Aantal verbindingen: 27
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: IE
-- Aantal verbindingen: 380
+Land: DE
+- Aantal verbindingen: 15
 - Totaal bytes: 0
 - Malicious hits: 0
 
 Land: NL
-- Aantal verbindingen: 385
+- Aantal verbindingen: 26
 - Totaal bytes: 0
 - Malicious hits: 0
+
+Land: IE
+- Aantal verbindingen: 19
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: CA
+- Aantal verbindingen: 46
+- Totaal bytes: 0
+- Malicious hits: 1
 
 Land: FR
-- Aantal verbindingen: 41
+- Aantal verbindingen: 3
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: CH
-- Aantal verbindingen: 10
+Land: ??
+- Aantal verbindingen: 215
+- Totaal bytes: 0
+- Malicious hits: 1
+
+Land: IT
+- Aantal verbindingen: 4
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: DE
-- Aantal verbindingen: 137
+Land: US
+- Aantal verbindingen: 82
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: GB
-- Aantal verbindingen: 50
+Land: SE
+- Aantal verbindingen: 9
+- Totaal bytes: 0
+- Malicious hits: 0
+
+Land: AT
+- Aantal verbindingen: 2
 - Totaal bytes: 0
 - Malicious hits: 0
 
 Land: PL
-- Aantal verbindingen: 11
+- Aantal verbindingen: 4
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: AE
-- Aantal verbindingen: 1
+Land: GB
+- Aantal verbindingen: 6
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: BR
-- Aantal verbindingen: 2
+Land: AU
+- Aantal verbindingen: 5
 - Totaal bytes: 0
 - Malicious hits: 0
 
@@ -78,27 +68,17 @@ Land: JP
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: KR
-- Aantal verbindingen: 6
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: IN
+Land: DK
 - Aantal verbindingen: 1
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: CL
+Land: ZA
 - Aantal verbindingen: 1
 - Totaal bytes: 0
 - Malicious hits: 0
 
-Land: SG
-- Aantal verbindingen: 2
-- Totaal bytes: 0
-- Malicious hits: 0
-
-Land: NO
+Land: ES
 - Aantal verbindingen: 1
 - Totaal bytes: 0
 - Malicious hits: 0

@@ -41,8 +41,6 @@ def analyse_ips(ip_entries, tree, stats_label, progress_bar, all_rows_buffer, la
         land_stats[country]["hits"] += 1
         land_stats[country]["malicious"] += 1 if verdacht == "JA" else 0
 
-
-        # Optioneel: houdt land_teller bij voor GUI-weergave
         land_teller[country] = land_teller.get(country, 0) + 1
 
     stats = "\n".join(f"{land}: {count} verbinding(en)" for land, count in land_teller.items())

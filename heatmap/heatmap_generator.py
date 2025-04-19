@@ -8,9 +8,7 @@ import traceback
 
 from utils.country_utils import get_country_iso_code
 
-# -------------------------------------------------
-# 1) Pak alle unieke IP’s uit je outgoing log
-# -------------------------------------------------
+
 def parse_outgoing_ips(log_path):
     if not os.path.exists(log_path):
         print(f"[Parser][ERROR] Bestand niet gevonden: {log_path}")
@@ -22,12 +20,10 @@ def parse_outgoing_ips(log_path):
     print(f"[Parser] {len(ips)} total IP‑hits, {len(unique)} uniek")
     return unique
 
-# -------------------------------------------------
-# 2) Batch‑geolocatie via ip‑api.com (max 100 IPs per call)
-# -------------------------------------------------
+
 def geolocate_batch(ips):
     endpoint = "http://ip-api.com/batch"
-    # chunk in batches van 100
+
     geo_map = {}
     for i in range(0, len(ips), 100):
         batch = ips[i:i+100]
@@ -55,9 +51,7 @@ def geolocate_batch(ips):
 
     return geo_map
 
-# -------------------------------------------------
-# 3) Tel per land de hits op basis van de volledige log
-# -------------------------------------------------
+
 def build_country_stats(log_path, geo_map):
     text = open(log_path, errors="ignore").read()
     ips = re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", text)
@@ -78,9 +72,6 @@ def build_country_stats(log_path, geo_map):
     print(f"[Stats] Hits per land: {stats}")
     return stats
 
-# -------------------------------------------------
-# 4) Genereer altijd een kaart (zelfs zonder data)
-# -------------------------------------------------
 def generate_ip_heatmap(stats, map_path="heatmap.html"):
     points = [
         [float(i["lat"]), float(i["lon"]), float(i["hits"])]
@@ -111,26 +102,20 @@ def generate_ip_heatmap(stats, map_path="heatmap.html"):
         print("[Heatmap][ERROR] Fout bij heatmap:")
         traceback.print_exc()
 
-# -------------------------------------------------
-# 5) Centrale functie om vanuit je GUI aan te roepen
-# -------------------------------------------------
 def run_heatmap_from_log(log_path, map_path="heatmap.html"):
     """
     Volledige pipeline: parse, geolocate, stats bouwen en heatmap maken.
     Roep deze functie aan in je button‑callback.
     """
-    # 1) Unieke IP’s
+
     unique_ips = parse_outgoing_ips(log_path)
     if not unique_ips:
         print("[Heatmap] Stop: geen IP’s gevonden.")
-        generate_ip_heatmap({}, map_path)  # genereer lege kaart
+        generate_ip_heatmap({}, map_path)  
         return
 
-    # 2) Batch‑geolocatie
     geo_map = geolocate_batch(unique_ips)
 
-    # 3) Stats per land
     stats = build_country_stats(log_path, geo_map)
 
-    # 4) Heatmap
     generate_ip_heatmap(stats, map_path)

@@ -14,7 +14,7 @@ def parse_firewall_log(path=FIREWALL_LOG_PATH):
         with open(path, "r", encoding="utf-8", errors="ignore") as file:
             for line in file:
                 if line.startswith("#") or not line.strip():
-                    continue  # Skip header or empty lines
+                    continue
 
                 parts = line.strip().split()
                 if len(parts) < 10:

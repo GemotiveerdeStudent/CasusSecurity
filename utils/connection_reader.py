@@ -44,13 +44,11 @@ def get_incoming_connections():
             ip = conn.laddr.ip
             port = conn.laddr.port
 
-            # Probeer hostnaam op te lossen
             try:
                 hostname = socket.gethostbyaddr(ip)[0]
             except:
                 hostname = "Onbekend"
 
-            # Toon alleen publieke IP's, of markeer lokale apart
             if is_public_ip(ip):
                 results.append((ip, hostname, port, process_name))
             else:

@@ -1,4 +1,3 @@
-# gui_controls.py
 import tkinter as tk
 from tkinter import ttk
 from export.export_report_csv import export_report_csv

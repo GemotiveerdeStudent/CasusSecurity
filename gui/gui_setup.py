@@ -26,7 +26,6 @@ def build_gui(ioc, land_stats, all_rows_out, all_rows_in, stop_requested_func):
     if is_admin():
         admin_status.config(text="Administratormodus actief🛡️", fg="green")
 
-    # Tabs toepassen middels de tabs folder
     tab_outgoing, tab_incoming, tab_firewall, tab_ssh = [ttk.Frame(notebook) for _ in range(4)]
 
     notebook.add(tab_outgoing, text="Uitgaand verkeer")
@@ -34,16 +33,13 @@ def build_gui(ioc, land_stats, all_rows_out, all_rows_in, stop_requested_func):
     notebook.add(tab_firewall, text="Firewall Log")
     notebook.add(tab_ssh, text="Linux SSH Analyse")
 
-    # Stijlen toepassen via gui_styles
     apply_treeview_styles()
 
-    # Tabs opbouwen
     build_outgoing_tab(tab_outgoing, ioc, all_rows_out, land_stats, stop_requested_func)
     build_incoming_tab(tab_incoming, ioc, all_rows_in, land_stats, stop_requested_func)
     build_firewall_tab(tab_firewall, ioc, land_stats, stop_requested_func)
     build_ssh_tab(tab_ssh, ioc)
 
-    # Algemene knoppen & status
     ioc_status_label = build_controls(root, land_stats)
 
     schedule_periodic_refresh()

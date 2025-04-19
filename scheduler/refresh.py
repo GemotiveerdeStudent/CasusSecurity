@@ -19,7 +19,6 @@ def resume_analysis():
 
 def schedule_periodic_refresh():
     if root:
-        # No automatic refresh anymore — optional to reimplement per tab
         root.after(60000, schedule_periodic_refresh)
     else:
         print("❌ Root venster is niet ingesteld. Gebruik set_root_reference(root).")
